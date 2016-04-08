@@ -1,0 +1,204 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <style>
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .svg {
+            height: 99%;
+            width: 100%;
+        }
+        
+        .svg__group,
+        .svg__group_opened .svg__path,
+        .svg__group_opened .svg__group {
+            fill: #e2dbd3;
+            stroke: #c2bba8;
+        }
+        
+        .svg__group:hover,
+        .svg__group_opened .svg__path:hover,
+        .svg__group_opened .svg__group:hover {
+            fill: #7fbfff;
+        }
+        
+        .svg__group-states {
+            display: none;
+            opacity: 0;
+            transition: opacity 1s;
+        }
+        
+        .svg__group-path {
+            transition: opacity 1s;
+        }
+        
+        .svg__group_active > .svg__group-path,
+        .svg__group_opened > .svg__group-path {
+            opacity: 0;
+        }
+        
+        .svg__group_active > .svg__group-states,
+        .svg__group_opened > .svg__group-states {
+            opacity: 1;
+            display: block;
+        }
+        
+        .svg__group_active .svg__path,
+        .svg__group_active .svg__group {
+            fill: #ffffaa;
+        }
+        
+        .svg__group_active .svg__path:hover,
+        .svg__group_active .svg__group:hover {
+            fill: #ffff55;
+        }
+    </style>
+</head>
+
+<body>
+
+    <svg id="js-svg" class="svg" viewBox="0 0 1009 665"></svg>
+
+    <script>
+        (function() {
+            const JSON_DATA_FILE = "data.json";
+
+            const SVG_SELECTOR = "[id=js-svg]";
+
+            const NS = "http://www.w3.org/2000/svg";
+
+            const CLASS_SVG_PATH = "svg__path";
+
+            const CLASS_SVG_GROUP = "svg__group";
+            const CLASS_SVG_GROUP_ACTIVE = "svg__group_active";
+            const CLASS_SVG_GROUP_OPENED = "svg__group_opened";
+            const CLASS_SVG_GROUP_PATH = "svg__group-path";
+            const CLASS_SVG_GROUP_STATES = "svg__group-states";
+
+            const CLASS_JS_SVG_GROUP = "js-svg__group";
+
+            if (window.File && window.FileReader && window.FileList && window.Blob) {
+                // TODO
+            } else {
+                // XMLHttpRequest
+            }
+
+            let xhr = new XMLHttpRequest();
+            xhr.overrideMimeType("application/json");
+            xhr.open("GET", JSON_DATA_FILE, true);
+            xhr.send();
+            xhr.onreadystatechange = function(e) {
+                if (xhr.readyState == 4 && xhr.status == "200") {
+                    let data = JSON.parse(xhr.responseText);
+
+                    let svg = document.querySelector(SVG_SELECTOR);
+                    let group = document.createElementNS(NS, "g");
+                    addClass(group, CLASS_SVG_GROUP);
+
+                    svg.appendChild(group);
+
+                    callback(data, group);
+
+                    next();
+                }
+            };
+
+            function callback(data, containerGroup) {
+                data.forEach((element, index, array) => {
+                    let path = document.createElementNS(NS, "path");
+                    addClass(path, CLASS_SVG_PATH);
+                    path.setAttribute("id", element.id);
+                    path.setAttribute("d", element.path);
+
+                    if (element.states) {
+                        let innerMainGroup = document.createElementNS(NS, "g");
+                        let innerPathGroup = document.createElementNS(NS, "g");
+                        let innerStatesGroup = document.createElementNS(NS, "g");
+
+                        innerPathGroup.appendChild(path);
+
+                        innerMainGroup.appendChild(innerPathGroup);
+                        innerMainGroup.appendChild(innerStatesGroup);
+
+                        containerGroup.appendChild(innerMainGroup);
+
+                        callback(element.states, innerStatesGroup);
+
+                        let innerStatesGroupBBox = innerStatesGroup.getBBox();
+                        let pathBBox = path.getBBox();
+
+                        let scale = pathBBox.height / innerStatesGroupBBox.height;
+                        if (scale < 0.9 || 1 < scale) {
+                            let scaleText = "scale(" + scale + ")";
+
+                            let translateX = pathBBox.x - innerStatesGroupBBox.x * scale;
+                            let translateY = pathBBox.y - innerStatesGroupBBox.y * scale;
+                            let translateText = "translate(" + translateX + "," + translateY + ")";
+
+                            innerStatesGroup.setAttribute("transform", translateText + " " + scaleText);
+                        }
+
+                        addClass(innerMainGroup, CLASS_SVG_GROUP);
+                        addClass(innerMainGroup, CLASS_JS_SVG_GROUP);
+                        addClass(innerPathGroup, CLASS_SVG_GROUP_PATH);
+                        addClass(innerStatesGroup, CLASS_SVG_GROUP_STATES);
+                    } else {
+                        containerGroup.appendChild(path);
+                    }
+                });
+            };
+
+            function next() {
+                let svgGroups = document.querySelectorAll("[class*=" + CLASS_JS_SVG_GROUP + "]");
+
+                for (let i = 0; i < svgGroups.length; i++) {
+                    svgGroups[i].onclick = function(event) {
+                        if (this.parentNode &&
+                            this.parentNode.parentNode &&
+                            hasClass(this.parentNode.parentNode, CLASS_SVG_GROUP_ACTIVE)) {
+
+                            removeClass(this.parentNode.parentNode, CLASS_SVG_GROUP_ACTIVE);
+                            addClass(this.parentNode.parentNode, CLASS_SVG_GROUP_OPENED);
+
+                        } else {
+                            removeClassAtAll(CLASS_SVG_GROUP_OPENED);
+                            removeClassAtAll(CLASS_SVG_GROUP_ACTIVE);
+                        }
+
+                        addClass(this, CLASS_SVG_GROUP_ACTIVE);
+                        event.stopPropagation();
+                    };
+                }
+            };
+
+            function hasClass(element, className) {
+                return element.classList.contains(className);
+            };
+
+            function addClass(element, className) {
+                element.classList.add(className);
+            };
+
+            function removeClass(element, className) {
+                element.classList.remove(className);
+            };
+
+            function removeClassAtAll(className) {
+                let classed = document.querySelectorAll("[class*=" + className + "]");
+                for (let i = 0; i < classed.length; i++) {
+                    removeClass(classed[i], className);
+                }
+            };
+        })();
+    </script>
+</body>
+
+</html>
